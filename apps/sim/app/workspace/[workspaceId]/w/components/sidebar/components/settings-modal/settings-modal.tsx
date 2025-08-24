@@ -13,7 +13,6 @@ import {
   Credentials,
   EnvironmentVariables,
   General,
-  Privacy,
   SettingsNavigation,
   Subscription,
   TeamManagement,
@@ -38,7 +37,6 @@ type SettingsSection =
   | 'apikeys'
   | 'subscription'
   | 'team'
-  | 'privacy'
   | 'copilot'
 
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
@@ -159,9 +157,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 <Copilot />
               </div>
             )}
-            <div className={cn('h-full', activeSection === 'privacy' ? 'block' : 'hidden')}>
-              <Privacy />
-            </div>
           </div>
         </div>
       </DialogContent>

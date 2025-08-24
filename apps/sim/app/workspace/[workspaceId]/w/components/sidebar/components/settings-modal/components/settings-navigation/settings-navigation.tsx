@@ -27,7 +27,6 @@ interface SettingsNavigationProps {
       | 'apikeys'
       | 'subscription'
       | 'team'
-      | 'privacy'
       | 'copilot'
   ) => void
   hasOrganization: boolean
@@ -43,7 +42,6 @@ type NavigationItem = {
     | 'subscription'
     | 'team'
     | 'copilot'
-    | 'privacy'
   label: string
   icon: React.ComponentType<{ className?: string }>
   hideWhenBillingDisabled?: boolean
@@ -80,11 +78,6 @@ const allNavigationItems: NavigationItem[] = [
     id: 'copilot',
     label: 'Copilot Keys',
     icon: Bot,
-  },
-  {
-    id: 'privacy',
-    label: 'Privacy',
-    icon: Shield,
   },
   {
     id: 'subscription',

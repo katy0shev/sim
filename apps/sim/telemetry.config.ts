@@ -67,7 +67,7 @@ const config = {
    * Set enabled: false to disable client-side telemetry entirely
    */
   clientSide: {
-    enabled: true,
+    enabled: false,
   },
 
   /**
@@ -75,7 +75,7 @@ const config = {
    * Set enabled: false to disable server-side telemetry entirely
    */
   serverSide: {
-    enabled: true,
+    enabled: false,
   },
 }
 
