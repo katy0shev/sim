@@ -92,9 +92,10 @@ export async function uploadFile(
     return uploadToS3(file, fileName, contentType, configOrSize)
   }
 
-  throw new Error(
-    'No storage provider configured. Set Azure credentials (AZURE_CONNECTION_STRING or AZURE_ACCOUNT_NAME + AZURE_ACCOUNT_KEY) or configure AWS credentials for S3.'
-  )
+  // Fallback to local storage
+  logger.info(`Uploading file to local storage: ${fileName}`)
+  const { uploadFileToLocal } = await import('@/lib/uploads/local')
+  return uploadFileToLocal(file, fileName, contentType)
 }
 
 /**
@@ -115,9 +116,10 @@ export async function downloadFile(key: string): Promise<Buffer> {
     return downloadFromS3(key)
   }
 
-  throw new Error(
-    'No storage provider configured. Set Azure credentials (AZURE_CONNECTION_STRING or AZURE_ACCOUNT_NAME + AZURE_ACCOUNT_KEY) or configure AWS credentials for S3.'
-  )
+  // Fallback to local storage
+  logger.info(`Downloading file from local storage: ${key}`)
+  const { downloadFileFromLocal } = await import('@/lib/uploads/local')
+  return downloadFileFromLocal(key)
 }
 
 /**
@@ -137,9 +139,10 @@ export async function deleteFile(key: string): Promise<void> {
     return deleteFromS3(key)
   }
 
-  throw new Error(
-    'No storage provider configured. Set Azure credentials (AZURE_CONNECTION_STRING or AZURE_ACCOUNT_NAME + AZURE_ACCOUNT_KEY) or configure AWS credentials for S3.'
-  )
+  // Fallback to local storage
+  logger.info(`Deleting file from local storage: ${key}`)
+  const { deleteFileFromLocal } = await import('@/lib/uploads/local')
+  return deleteFileFromLocal(key)
 }
 
 /**

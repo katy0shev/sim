@@ -23,7 +23,7 @@ import { getBaseURL } from '@/lib/auth-client'
 import { DEFAULT_FREE_CREDITS } from '@/lib/billing/constants'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { env, isTruthy } from '@/lib/env'
-import { isBillingEnabled, isProd } from '@/lib/environment'
+import { isBillingEnabled, isDev, isProd } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getEmailDomain } from '@/lib/urls/utils'
 import { db } from '@/db'
@@ -68,10 +68,12 @@ export const auth = betterAuth({
     ...(env.NEXT_PUBLIC_VERCEL_URL ? [`https://${env.NEXT_PUBLIC_VERCEL_URL}`] : []),
     ...(env.NEXT_PUBLIC_SOCKET_URL ? [env.NEXT_PUBLIC_SOCKET_URL] : []),
   ].filter(Boolean),
-  database: drizzleAdapter(db, {
-    provider: 'pg',
-    schema,
-  }),
+  database: isDev
+    ? undefined
+    : drizzleAdapter(db, {
+        provider: 'pg',
+        schema,
+      }),
   session: {
     cookieCache: {
       enabled: true,

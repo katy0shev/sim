@@ -108,6 +108,7 @@ export default function LoginPage({
   // Initialize state for URL parameters
   const [callbackUrl, setCallbackUrl] = useState('/workspace')
   const [isInviteFlow, setIsInviteFlow] = useState(false)
+  const [isDev, setIsDev] = useState(false)
 
   // Forgot password states
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
@@ -126,6 +127,7 @@ export default function LoginPage({
   // Extract URL parameters after component mounts to avoid SSR issues
   useEffect(() => {
     setMounted(true)
+    setIsDev(!isProduction)
 
     // Only access search params on the client side
     if (searchParams) {
@@ -143,7 +145,7 @@ export default function LoginPage({
       const inviteFlow = searchParams.get('invite_flow') === 'true'
       setIsInviteFlow(inviteFlow)
     }
-  }, [searchParams])
+  }, [searchParams, isProduction])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -294,6 +296,36 @@ export default function LoginPage({
       }
 
       console.error('Uncaught login error:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleDevLogin() {
+    setIsLoading(true)
+    try {
+      const result = await fetch('/api/auth/dev-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: 'dev@localhost.lan',
+          password: 'Password1!',
+        }),
+      })
+
+      if (!result.ok) {
+        const errorData = await result.json()
+        throw new Error(errorData.message || 'Dev login failed')
+      }
+
+      const session = await result.json()
+      if (session) {
+        router.push('/workspace')
+      }
+    } catch (error) {
+      console.error('Dev login error:', error)
     } finally {
       setIsLoading(false)
     }
@@ -461,6 +493,17 @@ export default function LoginPage({
             >
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
+            {isDev && (
+              <Button
+                type='button'
+                variant='outline'
+                className='w-full'
+                onClick={handleDevLogin}
+                disabled={isLoading}
+              >
+                Dev Login
+              </Button>
+            )}
           </form>
         </div>
 
