@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { logger } from '@trigger.dev/sdk/v3'
 import { PlusIcon, WrenchIcon, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -13,6 +12,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Toggle } from '@/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { createLogger } from '@/lib/logs/console/logger'
 import type { OAuthProvider, OAuthService } from '@/lib/oauth/oauth'
 import { cn } from '@/lib/utils'
 import {
@@ -20,7 +20,6 @@ import {
   CheckboxList,
   Code,
   ComboBox,
-  DateInput,
   FileSelectorInput,
   FileUpload,
   LongInput,
@@ -48,6 +47,8 @@ import {
   isPasswordParameter,
   type ToolParameterConfig,
 } from '@/tools/params'
+
+const logger = createLogger('ToolInput')
 
 interface ToolInputProps {
   blockId: string
@@ -164,33 +165,6 @@ function TableSyncWrapper({
         blockId={blockId}
         subBlockId={paramId}
         columns={uiComponent.columns || ['Key', 'Value']}
-        disabled={disabled}
-      />
-    </GenericSyncWrapper>
-  )
-}
-
-function DateInputSyncWrapper({
-  blockId,
-  paramId,
-  value,
-  onChange,
-  uiComponent,
-  disabled,
-}: {
-  blockId: string
-  paramId: string
-  value: string
-  onChange: (value: string) => void
-  uiComponent: any
-  disabled: boolean
-}) {
-  return (
-    <GenericSyncWrapper blockId={blockId} paramId={paramId} value={value} onChange={onChange}>
-      <DateInput
-        blockId={blockId}
-        subBlockId={paramId}
-        placeholder={uiComponent.placeholder}
         disabled={disabled}
       />
     </GenericSyncWrapper>
@@ -1157,18 +1131,6 @@ export function ToolInput({
           />
         )
 
-      case 'date-input':
-        return (
-          <DateInputSyncWrapper
-            blockId={blockId}
-            paramId={param.id}
-            value={value}
-            onChange={onChange}
-            uiComponent={uiComponent}
-            disabled={disabled}
-          />
-        )
-
       case 'time-input':
         return (
           <TimeInputSyncWrapper
@@ -1358,7 +1320,7 @@ export function ToolInput({
 
             // For custom tools, extract parameters from schema
             const customToolParams =
-              isCustomTool && tool.schema
+              isCustomTool && tool.schema && tool.schema.function?.parameters?.properties
                 ? Object.entries(tool.schema.function.parameters.properties || {}).map(
                     ([paramId, param]: [string, any]) => ({
                       id: paramId,
@@ -1862,6 +1824,7 @@ export function ToolInput({
         }}
         onSave={editingToolIndex !== null ? handleSaveCustomTool : handleAddCustomTool}
         onDelete={handleDeleteTool}
+        blockId={blockId}
         initialValues={
           editingToolIndex !== null && selectedTools[editingToolIndex]?.type === 'custom-tool'
             ? {

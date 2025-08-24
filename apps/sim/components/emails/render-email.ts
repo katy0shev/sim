@@ -1,10 +1,12 @@
 import { render } from '@react-email/components'
 import {
   BatchInvitationEmail,
+  HelpConfirmationEmail,
   InvitationEmail,
   OTPVerificationEmail,
   ResetPasswordEmail,
 } from '@/components/emails'
+import { getBrandConfig } from '@/lib/branding/branding'
 
 export async function renderOTPEmail(
   otp: string,
@@ -65,6 +67,21 @@ export async function renderBatchInvitationEmail(
   )
 }
 
+export async function renderHelpConfirmationEmail(
+  userEmail: string,
+  type: 'bug' | 'feedback' | 'feature_request' | 'other',
+  attachmentCount = 0
+): Promise<string> {
+  return await render(
+    HelpConfirmationEmail({
+      userEmail,
+      type,
+      attachmentCount,
+      submittedDate: new Date(),
+    })
+  )
+}
+
 export function getEmailSubject(
   type:
     | 'sign-in'
@@ -73,21 +90,26 @@ export function getEmailSubject(
     | 'reset-password'
     | 'invitation'
     | 'batch-invitation'
+    | 'help-confirmation'
 ): string {
+  const brandName = getBrandConfig().name
+
   switch (type) {
     case 'sign-in':
-      return 'Sign in to Sim'
+      return `Sign in to ${brandName}`
     case 'email-verification':
-      return 'Verify your email for Sim'
+      return `Verify your email for ${brandName}`
     case 'forget-password':
-      return 'Reset your Sim password'
+      return `Reset your ${brandName} password`
     case 'reset-password':
-      return 'Reset your Sim password'
+      return `Reset your ${brandName} password`
     case 'invitation':
-      return "You've been invited to join a team on Sim"
+      return `You've been invited to join a team on ${brandName}`
     case 'batch-invitation':
-      return "You've been invited to join a team and workspaces on Sim"
+      return `You've been invited to join a team and workspaces on ${brandName}`
+    case 'help-confirmation':
+      return 'Your request has been received'
     default:
-      return 'Sim'
+      return brandName
   }
 }

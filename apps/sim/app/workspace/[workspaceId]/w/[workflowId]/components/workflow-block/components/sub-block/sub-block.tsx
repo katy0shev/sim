@@ -11,7 +11,6 @@ import {
   ComboBox,
   ConditionInput,
   CredentialSelector,
-  DateInput,
   DocumentSelector,
   Dropdown,
   EvalInput,
@@ -126,9 +125,12 @@ export function SubBlock({
               blockId={blockId}
               subBlockId={config.id}
               options={config.options as { label: string; id: string }[]}
+              defaultValue={typeof config.value === 'function' ? config.value({}) : config.value}
+              placeholder={config.placeholder}
               isPreview={isPreview}
               previewValue={previewValue}
               disabled={isDisabled}
+              config={config}
             />
           </div>
         )
@@ -139,6 +141,7 @@ export function SubBlock({
               blockId={blockId}
               subBlockId={config.id}
               options={config.options as { label: string; id: string }[]}
+              defaultValue={typeof config.value === 'function' ? config.value({}) : config.value}
               placeholder={config.placeholder}
               isPreview={isPreview}
               previewValue={previewValue}
@@ -247,17 +250,6 @@ export function SubBlock({
           <EvalInput
             blockId={blockId}
             subBlockId={config.id}
-            isPreview={isPreview}
-            previewValue={previewValue}
-            disabled={isDisabled}
-          />
-        )
-      case 'date-input':
-        return (
-          <DateInput
-            blockId={blockId}
-            subBlockId={config.id}
-            placeholder={config.placeholder}
             isPreview={isPreview}
             previewValue={previewValue}
             disabled={isDisabled}
@@ -435,6 +427,7 @@ export function SubBlock({
             disabled={isDisabled}
             isConnecting={isConnecting}
             config={config}
+            showValue={true}
           />
         )
       }

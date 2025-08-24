@@ -1,4 +1,4 @@
-import { tasks } from '@trigger.dev/sdk/v3'
+import { tasks } from '@trigger.dev/sdk'
 import { eq, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
@@ -540,7 +540,7 @@ export async function POST(
           )
         }
 
-        // Rate limit passed - trigger the task
+        // Rate limit passed - always use Trigger.dev for async executions
         const handle = await tasks.trigger('workflow-execution', {
           workflowId,
           userId: authenticatedUserId,
