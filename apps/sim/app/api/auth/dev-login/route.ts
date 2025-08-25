@@ -1,5 +1,7 @@
+import { SignJWT } from 'jose'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { env } from '@/lib/env'
 import { isDev } from '@/lib/environment'
 
 export async function POST(req: Request) {
@@ -22,12 +24,23 @@ export async function POST(req: Request) {
         stripeCustomerId: null,
       }
 
-      const session = await auth.createSession({
-        userId: user.id,
-        user,
+      const secret = new TextEncoder().encode(env.BETTER_AUTH_SECRET)
+      const alg = 'HS256'
+
+      const jwt = await new SignJWT({ user })
+        .setProtectedHeader({ alg })
+        .setExpirationTime('30d')
+        .setIssuedAt()
+        .sign(secret)
+
+      cookies().set('better-auth.session-token', jwt, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
       })
 
-      return NextResponse.json({ ...session })
+      return NextResponse.json({ success: true })
     }
 
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
