@@ -1,4 +1,3 @@
-import type { TraceSpan } from '@/lib/logs/types'
 import type { BlockOutput } from '@/blocks/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 
@@ -53,9 +52,6 @@ export interface NormalizedBlockOutput {
   headers?: Record<string, string> // HTTP headers
   // Error handling
   error?: string // Error message if block execution failed
-  // Child workflow introspection (for workflow blocks)
-  childTraceSpans?: TraceSpan[]
-  childWorkflowName?: string
 }
 
 /**
@@ -107,7 +103,6 @@ export interface ExecutionContext {
   blockLogs: BlockLog[] // Chronological log of block executions
   metadata: ExecutionMetadata // Timing metadata for the execution
   environmentVariables: Record<string, string> // Environment variables available during execution
-  workflowVariables?: Record<string, any> // Workflow variables available during execution
 
   // Routing decisions for path determination
   decisions: {

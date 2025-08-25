@@ -482,3 +482,9 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
     { name: 'subscription-store' }
   )
 )
+
+// Auto-load subscription data when store is first accessed
+if (typeof window !== 'undefined') {
+  // Load data in parallel on store creation
+  useSubscriptionStore.getState().loadData()
+}

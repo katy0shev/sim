@@ -115,7 +115,8 @@ Read data from a Microsoft Excel spreadsheet
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `data` | object | Range data from the spreadsheet |
+| `success` | boolean | Operation success status |
+| `output` | object | Excel spreadsheet data and metadata |
 
 ### `microsoft_excel_write`
 
@@ -135,11 +136,8 @@ Write data to a Microsoft Excel spreadsheet
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `updatedRange` | string | The range that was updated |
-| `updatedRows` | number | Number of rows that were updated |
-| `updatedColumns` | number | Number of columns that were updated |
-| `updatedCells` | number | Number of cells that were updated |
-| `metadata` | object | Spreadsheet metadata |
+| `success` | boolean | Operation success status |
+| `output` | object | Write operation results and metadata |
 
 ### `microsoft_excel_table_add`
 
@@ -157,9 +155,8 @@ Add new rows to a Microsoft Excel table
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `index` | number | Index of the first row that was added |
-| `values` | array | Array of rows that were added to the table |
-| `metadata` | object | Spreadsheet metadata |
+| `success` | boolean | Operation success status |
+| `output` | object | Table add operation results and metadata |
 
 
 

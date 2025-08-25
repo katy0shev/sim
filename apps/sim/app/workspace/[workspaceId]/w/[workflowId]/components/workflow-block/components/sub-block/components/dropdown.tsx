@@ -22,7 +22,6 @@ interface DropdownProps {
   previewValue?: string | null
   disabled?: boolean
   placeholder?: string
-  config?: import('@/blocks/types').SubBlockConfig
 }
 
 export function Dropdown({
@@ -35,7 +34,6 @@ export function Dropdown({
   previewValue,
   disabled,
   placeholder = 'Select an option...',
-  config,
 }: DropdownProps) {
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
@@ -283,7 +281,7 @@ export function Dropdown({
 
       {/* Dropdown */}
       {open && (
-        <div className='absolute top-full left-0 z-[100] mt-1 w-full'>
+        <div className='absolute top-full left-0 z-[100] mt-1 w-full min-w-[286px]'>
           <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-lg'>
             <div
               ref={dropdownRef}

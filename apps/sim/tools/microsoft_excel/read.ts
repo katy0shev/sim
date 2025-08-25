@@ -1,9 +1,7 @@
 import type {
-  ExcelCellValue,
   MicrosoftExcelReadResponse,
   MicrosoftExcelToolParams,
 } from '@/tools/microsoft_excel/types'
-import { trimTrailingEmptyRowsAndColumns } from '@/tools/microsoft_excel/utils'
 import type { ToolConfig } from '@/tools/types'
 
 export const readTool: ToolConfig<MicrosoftExcelToolParams, MicrosoftExcelReadResponse> = {
@@ -47,9 +45,7 @@ export const readTool: ToolConfig<MicrosoftExcelToolParams, MicrosoftExcelReadRe
       }
 
       if (!params.range) {
-        // When no range is provided, first fetch the first worksheet name (to avoid hardcoding "Sheet1")
-        // We'll read its default range after in transformResponse
-        return `https://graph.microsoft.com/v1.0/me/drive/items/${spreadsheetId}/workbook/worksheets?$select=name&$orderby=position&$top=1`
+        return `https://graph.microsoft.com/v1.0/me/drive/items/${spreadsheetId}/workbook/worksheets('Sheet1')/range(address='A1:Z1000')`
       }
 
       const rangeInput = params.range.trim()
@@ -76,70 +72,7 @@ export const readTool: ToolConfig<MicrosoftExcelToolParams, MicrosoftExcelReadRe
     },
   },
 
-  transformResponse: async (response: Response, params?: MicrosoftExcelToolParams) => {
-    // If we came from the worksheets listing (no range provided), resolve first sheet name then fetch range
-    if (response.url.includes('/workbook/worksheets?')) {
-      const listData = await response.json()
-      const firstSheetName: string | undefined = listData?.value?.[0]?.name
-
-      if (!firstSheetName) {
-        throw new Error('No worksheets found in the Excel workbook')
-      }
-
-      const spreadsheetIdFromUrl = response.url.split('/drive/items/')[1]?.split('/')[0] || ''
-      const accessToken = params?.accessToken
-      if (!accessToken) {
-        throw new Error('Access token is required to read Excel range')
-      }
-
-      // Use usedRange(valuesOnly=true) to fetch only populated cells, avoiding thousands of empty rows
-      const rangeUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${encodeURIComponent(
-        spreadsheetIdFromUrl
-      )}/workbook/worksheets('${encodeURIComponent(firstSheetName)}')/usedRange(valuesOnly=true)`
-
-      const rangeResp = await fetch(rangeUrl, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
-
-      if (!rangeResp.ok) {
-        // Normalize Microsoft Graph sheet/range errors to a friendly message
-        throw new Error(
-          'Invalid range provided or worksheet not found. Provide a range like "Sheet1!A1:B2"'
-        )
-      }
-
-      const data = await rangeResp.json()
-
-      // usedRange returns an address (A1 notation) and values matrix
-      const address: string = data.address || data.addressLocal || `${firstSheetName}!A1`
-      const rawValues: ExcelCellValue[][] = data.values || []
-
-      const values = trimTrailingEmptyRowsAndColumns(rawValues)
-
-      const metadata = {
-        spreadsheetId: spreadsheetIdFromUrl,
-        properties: {},
-        spreadsheetUrl: `https://graph.microsoft.com/v1.0/me/drive/items/${spreadsheetIdFromUrl}`,
-      }
-
-      const result: MicrosoftExcelReadResponse = {
-        success: true,
-        output: {
-          data: {
-            range: address,
-            values,
-          },
-          metadata: {
-            spreadsheetId: metadata.spreadsheetId,
-            spreadsheetUrl: metadata.spreadsheetUrl,
-          },
-        },
-      }
-
-      return result
-    }
-
-    // Normal path: caller supplied a range; just return the parsed result
+  transformResponse: async (response: Response) => {
     const data = await response.json()
 
     const urlParts = response.url.split('/drive/items/')
@@ -151,16 +84,12 @@ export const readTool: ToolConfig<MicrosoftExcelToolParams, MicrosoftExcelReadRe
       spreadsheetUrl: `https://graph.microsoft.com/v1.0/me/drive/items/${spreadsheetId}`,
     }
 
-    const address: string = data.address || data.addressLocal || data.range || ''
-    const rawValues: ExcelCellValue[][] = data.values || []
-    const values = trimTrailingEmptyRowsAndColumns(rawValues)
-
     const result: MicrosoftExcelReadResponse = {
       success: true,
       output: {
         data: {
-          range: address,
-          values,
+          range: data.range || '',
+          values: data.values || [],
         },
         metadata: {
           spreadsheetId: metadata.spreadsheetId,
@@ -173,20 +102,27 @@ export const readTool: ToolConfig<MicrosoftExcelToolParams, MicrosoftExcelReadRe
   },
 
   outputs: {
-    data: {
+    success: { type: 'boolean', description: 'Operation success status' },
+    output: {
       type: 'object',
-      description: 'Range data from the spreadsheet',
+      description: 'Excel spreadsheet data and metadata',
       properties: {
-        range: { type: 'string', description: 'The range that was read' },
-        values: { type: 'array', description: 'Array of rows containing cell values' },
-      },
-    },
-    metadata: {
-      type: 'object',
-      description: 'Spreadsheet metadata',
-      properties: {
-        spreadsheetId: { type: 'string', description: 'The ID of the spreadsheet' },
-        spreadsheetUrl: { type: 'string', description: 'URL to access the spreadsheet' },
+        data: {
+          type: 'object',
+          description: 'Range data from the spreadsheet',
+          properties: {
+            range: { type: 'string', description: 'The range that was read' },
+            values: { type: 'array', description: 'Array of rows containing cell values' },
+          },
+        },
+        metadata: {
+          type: 'object',
+          description: 'Spreadsheet metadata',
+          properties: {
+            spreadsheetId: { type: 'string', description: 'The ID of the spreadsheet' },
+            spreadsheetUrl: { type: 'string', description: 'URL to access the spreadsheet' },
+          },
+        },
       },
     },
   },

@@ -1,3 +1,4 @@
+import path from 'path'
 import { withSentryConfig } from '@sentry/nextjs'
 import type { NextConfig } from 'next'
 import { env, isTruthy } from './lib/env'
@@ -73,6 +74,7 @@ const nextConfig: NextConfig = {
       'localhost:3000',
       'localhost:3001',
     ],
+    outputFileTracingRoot: path.join(__dirname, '../../'),
   }),
   transpilePackages: [
     'prettier',

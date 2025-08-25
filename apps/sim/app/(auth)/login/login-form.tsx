@@ -108,7 +108,6 @@ export default function LoginPage({
   // Initialize state for URL parameters
   const [callbackUrl, setCallbackUrl] = useState('/workspace')
   const [isInviteFlow, setIsInviteFlow] = useState(false)
-  const [isDev, setIsDev] = useState(false)
 
   // Forgot password states
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
@@ -127,7 +126,6 @@ export default function LoginPage({
   // Extract URL parameters after component mounts to avoid SSR issues
   useEffect(() => {
     setMounted(true)
-    setIsDev(!isProduction)
 
     // Only access search params on the client side
     if (searchParams) {
@@ -145,7 +143,7 @@ export default function LoginPage({
       const inviteFlow = searchParams.get('invite_flow') === 'true'
       setIsInviteFlow(inviteFlow)
     }
-  }, [searchParams, isProduction])
+  }, [searchParams])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -186,6 +184,13 @@ export default function LoginPage({
 
     const formData = new FormData(e.currentTarget)
     const email = formData.get('email') as string
+
+    // Dev login check
+    if (!isProduction && email === 'dev@localhost.lan' && password === 'Password1!') {
+      await handleDevLogin()
+      setIsLoading(false)
+      return
+    }
 
     // Validate email on submit
     const emailValidationErrors = validateEmailField(email)
@@ -326,6 +331,8 @@ export default function LoginPage({
       }
     } catch (error) {
       console.error('Dev login error:', error)
+      setPasswordErrors(['Dev login failed. Check server logs for more details.'])
+      setShowValidationError(true)
     } finally {
       setIsLoading(false)
     }
@@ -398,13 +405,11 @@ export default function LoginPage({
             callbackURL={callbackUrl}
           />
 
-          {(githubAvailable || googleAvailable) && (
-            <div className='relative mt-2 py-4'>
-              <div className='absolute inset-0 flex items-center'>
-                <div className='w-full border-neutral-700/50 border-t' />
-              </div>
+          <div className='relative mt-2 py-4'>
+            <div className='absolute inset-0 flex items-center'>
+              <div className='w-full border-neutral-700/50 border-t' />
             </div>
-          )}
+          </div>
 
           <form onSubmit={onSubmit} className='space-y-5'>
             <div className='space-y-4'>
@@ -495,17 +500,6 @@ export default function LoginPage({
             >
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
-            {isDev && (
-              <Button
-                type='button'
-                variant='outline'
-                className='w-full'
-                onClick={handleDevLogin}
-                disabled={isLoading}
-              >
-                Dev Login
-              </Button>
-            )}
           </form>
         </div>
 

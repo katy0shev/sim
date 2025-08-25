@@ -39,11 +39,6 @@ export async function POST(request: NextRequest) {
       stream,
       messages,
       environmentVariables,
-      workflowVariables,
-      blockData,
-      blockNameMapping,
-      reasoningEffort,
-      verbosity,
     } = body
 
     logger.info(`[${requestId}] Provider request details`, {
@@ -63,9 +58,6 @@ export async function POST(request: NextRequest) {
       messageCount: messages?.length || 0,
       hasEnvironmentVariables:
         !!environmentVariables && Object.keys(environmentVariables).length > 0,
-      hasWorkflowVariables: !!workflowVariables && Object.keys(workflowVariables).length > 0,
-      reasoningEffort,
-      verbosity,
     })
 
     let finalApiKey: string
@@ -107,11 +99,6 @@ export async function POST(request: NextRequest) {
       stream,
       messages,
       environmentVariables,
-      workflowVariables,
-      blockData,
-      blockNameMapping,
-      reasoningEffort,
-      verbosity,
     })
 
     const executionTime = Date.now() - startTime

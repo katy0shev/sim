@@ -21,7 +21,6 @@ interface ChatFileUploadProps {
   maxSize?: number // in MB
   acceptedTypes?: string[]
   disabled?: boolean
-  onError?: (errors: string[]) => void
 }
 
 export function ChatFileUpload({
@@ -31,7 +30,6 @@ export function ChatFileUpload({
   maxSize = 10,
   acceptedTypes = ['*'],
   disabled = false,
-  onError,
 }: ChatFileUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -93,7 +91,7 @@ export function ChatFileUpload({
 
     if (errors.length > 0) {
       logger.warn('File upload errors:', errors)
-      onError?.(errors)
+      // You could show these errors in a toast or alert
     }
 
     if (newFiles.length > 0) {
@@ -170,12 +168,7 @@ export function ChatFileUpload({
           ref={fileInputRef}
           type='file'
           multiple
-          onChange={(e) => {
-            handleFileSelect(e.target.files)
-            if (fileInputRef.current) {
-              fileInputRef.current.value = ''
-            }
-          }}
+          onChange={(e) => handleFileSelect(e.target.files)}
           className='hidden'
           accept={acceptedTypes.join(',')}
           disabled={disabled}

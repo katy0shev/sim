@@ -658,9 +658,6 @@ describe('createCustomToolRequestBody', () => {
         BASE_URL: 'https://example.com',
       },
       workflowId: undefined,
-      workflowVariables: {},
-      blockData: {},
-      blockNameMapping: {},
       isCustomTool: true,
     })
   })
@@ -685,9 +682,6 @@ describe('createCustomToolRequestBody', () => {
       schema: { type: 'object', properties: {} },
       envVars: {},
       workflowId: 'test-workflow-123',
-      workflowVariables: {},
-      blockData: {},
-      blockNameMapping: {},
       isCustomTool: true,
     })
   })

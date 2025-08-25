@@ -5,22 +5,7 @@ import { NextRequest } from 'next/server'
  * @vitest-environment node
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  createMockRequest,
-  mockExecutionDependencies,
-  mockTriggerDevSdk,
-} from '@/app/api/__test-utils__/utils'
-
-// Prefer mocking the background module to avoid loading Trigger.dev at all during tests
-vi.mock('@/background/webhook-execution', () => ({
-  executeWebhookJob: vi.fn().mockResolvedValue({
-    success: true,
-    workflowId: 'test-workflow-id',
-    executionId: 'test-exec-id',
-    output: {},
-    executedAt: new Date().toISOString(),
-  }),
-}))
+import { createMockRequest, mockExecutionDependencies } from '@/app/api/__test-utils__/utils'
 
 const hasProcessedMessageMock = vi.fn().mockResolvedValue(false)
 const markMessageAsProcessedMock = vi.fn().mockResolvedValue(true)
@@ -126,7 +111,6 @@ describe('Webhook Trigger API Route', () => {
     vi.resetAllMocks()
 
     mockExecutionDependencies()
-    mockTriggerDevSdk()
 
     vi.doMock('@/services/queue', () => ({
       RateLimiter: vi.fn().mockImplementation(() => ({
@@ -325,7 +309,11 @@ describe('Webhook Trigger API Route', () => {
       const req = createMockRequest('POST', { event: 'test', id: 'test-123' })
       const params = Promise.resolve({ path: 'test-path' })
 
-      mockTriggerDevSdk()
+      vi.doMock('@trigger.dev/sdk/v3', () => ({
+        tasks: {
+          trigger: vi.fn().mockResolvedValue({ id: 'mock-task-id' }),
+        },
+      }))
 
       const { POST } = await import('@/app/api/webhooks/trigger/[path]/route')
       const response = await POST(req, { params })
@@ -351,7 +339,11 @@ describe('Webhook Trigger API Route', () => {
       const req = createMockRequest('POST', { event: 'bearer.test' }, headers)
       const params = Promise.resolve({ path: 'test-path' })
 
-      mockTriggerDevSdk()
+      vi.doMock('@trigger.dev/sdk/v3', () => ({
+        tasks: {
+          trigger: vi.fn().mockResolvedValue({ id: 'mock-task-id' }),
+        },
+      }))
 
       const { POST } = await import('@/app/api/webhooks/trigger/[path]/route')
       const response = await POST(req, { params })
@@ -377,7 +369,11 @@ describe('Webhook Trigger API Route', () => {
       const req = createMockRequest('POST', { event: 'custom.header.test' }, headers)
       const params = Promise.resolve({ path: 'test-path' })
 
-      mockTriggerDevSdk()
+      vi.doMock('@trigger.dev/sdk/v3', () => ({
+        tasks: {
+          trigger: vi.fn().mockResolvedValue({ id: 'mock-task-id' }),
+        },
+      }))
 
       const { POST } = await import('@/app/api/webhooks/trigger/[path]/route')
       const response = await POST(req, { params })
@@ -395,7 +391,7 @@ describe('Webhook Trigger API Route', () => {
         token: 'case-test-token',
       })
 
-      vi.doMock('@trigger.dev/sdk', () => ({
+      vi.doMock('@trigger.dev/sdk/v3', () => ({
         tasks: {
           trigger: vi.fn().mockResolvedValue({ id: 'mock-task-id' }),
         },
@@ -434,7 +430,7 @@ describe('Webhook Trigger API Route', () => {
         secretHeaderName: 'X-Secret-Key',
       })
 
-      vi.doMock('@trigger.dev/sdk', () => ({
+      vi.doMock('@trigger.dev/sdk/v3', () => ({
         tasks: {
           trigger: vi.fn().mockResolvedValue({ id: 'mock-task-id' }),
         },

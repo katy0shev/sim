@@ -8,7 +8,6 @@ import type {
   ProviderResponse,
   TimeSegment,
 } from '@/providers/types'
-import { prepareToolExecution } from '@/providers/utils'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('CerebrasProvider')
@@ -288,7 +287,25 @@ export const cerebrasProvider: ProviderConfig = {
               // Execute the tool
               const toolCallStartTime = Date.now()
 
-              const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
+              // Only merge actual tool parameters for logging
+              const toolParams = {
+                ...tool.params,
+                ...toolArgs,
+              }
+
+              // Add system parameters for execution
+              const executionParams = {
+                ...toolParams,
+                ...(request.workflowId
+                  ? {
+                      _context: {
+                        workflowId: request.workflowId,
+                        ...(request.chatId ? { chatId: request.chatId } : {}),
+                      },
+                    }
+                  : {}),
+                ...(request.environmentVariables ? { envVars: request.environmentVariables } : {}),
+              }
 
               const result = await executeTool(toolName, executionParams, true)
               const toolCallEndTime = Date.now()

@@ -65,8 +65,7 @@ export function getWorkflowExecutionContext(): WorkflowExecutionContext {
   const { isShowingDiff, isDiffReady, diffWorkflow } = useWorkflowDiffStore.getState()
 
   // Determine which workflow to use - same logic as useCurrentWorkflow
-  const hasDiffBlocks = !!diffWorkflow && Object.keys((diffWorkflow as any).blocks || {}).length > 0
-  const shouldUseDiff = isShowingDiff && isDiffReady && hasDiffBlocks
+  const shouldUseDiff = isShowingDiff && isDiffReady && !!diffWorkflow
   const currentWorkflow = shouldUseDiff ? diffWorkflow : workflowState
 
   const { getAllVariables } = useEnvironmentStore.getState()

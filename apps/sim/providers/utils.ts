@@ -12,11 +12,9 @@ import {
   getHostedModels as getHostedModelsFromDefinitions,
   getMaxTemperature as getMaxTempFromDefinitions,
   getModelPricing as getModelPricingFromDefinitions,
-  getModelsWithReasoningEffort,
   getModelsWithTemperatureSupport,
   getModelsWithTempRange01,
   getModelsWithTempRange02,
-  getModelsWithVerbosity,
   getProviderModels as getProviderModelsFromDefinitions,
   getProvidersWithToolUsageControl,
   PROVIDER_DEFINITIONS,
@@ -237,6 +235,8 @@ export function generateStructuredOutputInstructions(responseFormat: any): strin
     })
     .join('\n')
 
+  logger.info(`Generated structured output instructions for ${responseFormat.fields.length} fields`)
+
   return `
 Please provide your response in the following JSON format:
 {
@@ -320,6 +320,10 @@ export function transformCustomTool(customTool: any): ProviderToolConfig {
 export function getCustomTools(): ProviderToolConfig[] {
   // Get custom tools from the store
   const customTools = useCustomToolsStore.getState().getAllTools()
+
+  if (customTools.length > 0) {
+    logger.info(`Found ${customTools.length} custom tools`)
+  }
 
   // Transform each custom tool into a provider tool config
   return customTools.map(transformCustomTool)
@@ -874,8 +878,6 @@ export function trackForcedToolUsage(
 export const MODELS_TEMP_RANGE_0_2 = getModelsWithTempRange02()
 export const MODELS_TEMP_RANGE_0_1 = getModelsWithTempRange01()
 export const MODELS_WITH_TEMPERATURE_SUPPORT = getModelsWithTemperatureSupport()
-export const MODELS_WITH_REASONING_EFFORT = getModelsWithReasoningEffort()
-export const MODELS_WITH_VERBOSITY = getModelsWithVerbosity()
 export const PROVIDERS_WITH_TOOL_USAGE_CONTROL = getProvidersWithToolUsageControl()
 
 /**
@@ -906,15 +908,7 @@ export function supportsToolUsageControl(provider: string): boolean {
 export function prepareToolExecution(
   tool: { params?: Record<string, any> },
   llmArgs: Record<string, any>,
-  request: {
-    workflowId?: string
-    chatId?: string
-    userId?: string
-    environmentVariables?: Record<string, any>
-    workflowVariables?: Record<string, any>
-    blockData?: Record<string, any>
-    blockNameMapping?: Record<string, string>
-  }
+  request: { workflowId?: string; chatId?: string; environmentVariables?: Record<string, any> }
 ): {
   toolParams: Record<string, any>
   executionParams: Record<string, any>
@@ -933,14 +927,10 @@ export function prepareToolExecution(
           _context: {
             workflowId: request.workflowId,
             ...(request.chatId ? { chatId: request.chatId } : {}),
-            ...(request.userId ? { userId: request.userId } : {}),
           },
         }
       : {}),
     ...(request.environmentVariables ? { envVars: request.environmentVariables } : {}),
-    ...(request.workflowVariables ? { workflowVariables: request.workflowVariables } : {}),
-    ...(request.blockData ? { blockData: request.blockData } : {}),
-    ...(request.blockNameMapping ? { blockNameMapping: request.blockNameMapping } : {}),
   }
 
   return { toolParams, executionParams }

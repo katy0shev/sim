@@ -25,7 +25,7 @@ export function Console({ panelWidth }: ConsoleProps) {
           No console entries
         </div>
       ) : (
-        <ScrollArea className='h-full' hideScrollbar={false}>
+        <ScrollArea className='h-full' hideScrollbar={true}>
           <div className='space-y-3'>
             {filteredEntries.map((entry) => (
               <ConsoleEntry key={entry.id} entry={entry} consoleWidth={panelWidth} />

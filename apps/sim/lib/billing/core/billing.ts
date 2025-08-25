@@ -9,27 +9,9 @@ import { getUserUsageData } from '@/lib/billing/core/usage'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { db } from '@/db'
-import { member, organization, subscription, user } from '@/db/schema'
+import { member, organization, subscription, user, userStats } from '@/db/schema'
 
 const logger = createLogger('Billing')
-
-/**
- * Get organization subscription directly by organization ID
- */
-export async function getOrganizationSubscription(organizationId: string) {
-  try {
-    const orgSubs = await db
-      .select()
-      .from(subscription)
-      .where(and(eq(subscription.referenceId, organizationId), eq(subscription.status, 'active')))
-      .limit(1)
-
-    return orgSubs.length > 0 ? orgSubs[0] : null
-  } catch (error) {
-    logger.error('Error getting organization subscription', { error, organizationId })
-    return null
-  }
-}
 
 interface BillingResult {
   success: boolean
@@ -107,43 +89,15 @@ async function getStripeCustomerId(referenceId: string): Promise<string | null> 
       .where(eq(organization.id, referenceId))
       .limit(1)
 
-    if (orgRecord.length > 0) {
-      // First, check if organization has its own Stripe customer (legacy support)
-      if (orgRecord[0].metadata) {
-        const metadata =
-          typeof orgRecord[0].metadata === 'string'
-            ? JSON.parse(orgRecord[0].metadata)
-            : orgRecord[0].metadata
+    if (orgRecord.length > 0 && orgRecord[0].metadata) {
+      const metadata =
+        typeof orgRecord[0].metadata === 'string'
+          ? JSON.parse(orgRecord[0].metadata)
+          : orgRecord[0].metadata
 
-        if (metadata?.stripeCustomerId) {
-          return metadata.stripeCustomerId
-        }
+      if (metadata?.stripeCustomerId) {
+        return metadata.stripeCustomerId
       }
-
-      // If organization has no Stripe customer, use the owner's customer
-      // This is our new pattern: subscriptions stay with user, referenceId = orgId
-      const ownerRecord = await db
-        .select({
-          stripeCustomerId: user.stripeCustomerId,
-          userId: user.id,
-        })
-        .from(user)
-        .innerJoin(member, eq(member.userId, user.id))
-        .where(and(eq(member.organizationId, referenceId), eq(member.role, 'owner')))
-        .limit(1)
-
-      if (ownerRecord.length > 0 && ownerRecord[0].stripeCustomerId) {
-        logger.debug('Using organization owner Stripe customer for billing', {
-          organizationId: referenceId,
-          ownerId: ownerRecord[0].userId,
-          stripeCustomerId: ownerRecord[0].stripeCustomerId,
-        })
-        return ownerRecord[0].stripeCustomerId
-      }
-
-      logger.warn('No Stripe customer found for organization or its owner', {
-        organizationId: referenceId,
-      })
     }
 
     return null
@@ -477,8 +431,8 @@ export async function processOrganizationOverageBilling(
   organizationId: string
 ): Promise<BillingResult> {
   try {
-    // Get organization subscription directly (referenceId = organizationId)
-    const subscription = await getOrganizationSubscription(organizationId)
+    // Get organization subscription
+    const subscription = await getHighestPrioritySubscription(organizationId)
 
     if (!subscription || !['team', 'enterprise'].includes(subscription.plan)) {
       logger.warn('No team/enterprise subscription found for organization', { organizationId })
@@ -673,20 +627,44 @@ export async function getUsersAndOrganizationsForOverageBilling(): Promise<{
         continue // Skip free plans
       }
 
-      // Check if subscription period ends today (range-based, inclusive of day)
+      // Check if subscription period ends today
       let shouldBillToday = false
 
       if (sub.periodEnd) {
         const periodEnd = new Date(sub.periodEnd)
-        const endsToday = periodEnd >= today && periodEnd < tomorrow
+        periodEnd.setUTCHours(0, 0, 0, 0) // Normalize to start of day
 
-        if (endsToday) {
+        // Bill if the subscription period ends today
+        if (periodEnd.getTime() === today.getTime()) {
           shouldBillToday = true
           logger.info('Subscription period ends today', {
             referenceId: sub.referenceId,
             plan: sub.plan,
             periodEnd: sub.periodEnd,
           })
+        }
+      } else {
+        // Fallback: Check userStats billing period for users
+        const userStatsRecord = await db
+          .select({
+            billingPeriodEnd: userStats.billingPeriodEnd,
+          })
+          .from(userStats)
+          .where(eq(userStats.userId, sub.referenceId))
+          .limit(1)
+
+        if (userStatsRecord.length > 0 && userStatsRecord[0].billingPeriodEnd) {
+          const billingPeriodEnd = new Date(userStatsRecord[0].billingPeriodEnd)
+          billingPeriodEnd.setUTCHours(0, 0, 0, 0) // Normalize to start of day
+
+          if (billingPeriodEnd.getTime() === today.getTime()) {
+            shouldBillToday = true
+            logger.info('User billing period ends today (from userStats)', {
+              userId: sub.referenceId,
+              plan: sub.plan,
+              billingPeriodEnd: userStatsRecord[0].billingPeriodEnd,
+            })
+          }
         }
       }
 
@@ -781,9 +759,7 @@ export async function getSimplifiedBillingSummary(
   try {
     // Get subscription and usage data upfront
     const [subscription, usageData] = await Promise.all([
-      organizationId
-        ? getOrganizationSubscription(organizationId)
-        : getHighestPrioritySubscription(userId),
+      getHighestPrioritySubscription(organizationId || userId),
       getUserUsageData(userId),
     ])
 

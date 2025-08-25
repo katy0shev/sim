@@ -16,7 +16,8 @@ import {
   uuid,
   vector,
 } from 'drizzle-orm/pg-core'
-import { DEFAULT_FREE_CREDITS, TAG_SLOTS } from './consts'
+import { DEFAULT_FREE_CREDITS } from '@/lib/billing/constants'
+import { TAG_SLOTS } from '@/lib/constants/knowledge'
 
 // Custom tsvector type for full-text search
 export const tsvector = customType<{
@@ -1061,7 +1062,9 @@ export const templates = pgTable(
   'templates',
   {
     id: text('id').primaryKey(),
-    workflowId: text('workflow_id').references(() => workflow.id),
+    workflowId: text('workflow_id')
+      .notNull()
+      .references(() => workflow.id),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),

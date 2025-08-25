@@ -1,15 +1,13 @@
-import { tasks } from '@trigger.dev/sdk'
+import { tasks } from '@trigger.dev/sdk/v3'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkServerSideUsageLimits } from '@/lib/billing'
-import { env, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   handleSlackChallenge,
   handleWhatsAppVerification,
   validateMicrosoftTeamsSignature,
 } from '@/lib/webhooks/utils'
-import { executeWebhookJob } from '@/background/webhook-execution'
 import { db } from '@/db'
 import { subscription, webhook, workflow } from '@/db/schema'
 import { RateLimiter } from '@/services/queue'
@@ -19,7 +17,6 @@ const logger = createLogger('WebhookTriggerAPI')
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
-export const runtime = 'nodejs'
 
 /**
  * Webhook Verification Handler (GET)
@@ -333,9 +330,10 @@ export async function POST(
     // Continue processing - better to risk usage limit bypass than fail webhook
   }
 
-  // --- PHASE 5: Queue webhook execution (trigger.dev or direct based on env) ---
+  // --- PHASE 5: Queue webhook execution via trigger.dev ---
   try {
-    const payload = {
+    // Queue the webhook execution task
+    const handle = await tasks.trigger('webhook-execution', {
       webhookId: foundWebhook.id,
       workflowId: foundWorkflow.id,
       userId: foundWorkflow.userId,
@@ -344,24 +342,11 @@ export async function POST(
       headers: Object.fromEntries(request.headers.entries()),
       path,
       blockId: foundWebhook.blockId,
-    }
+    })
 
-    const useTrigger = isTruthy(env.TRIGGER_DEV_ENABLED)
-
-    if (useTrigger) {
-      const handle = await tasks.trigger('webhook-execution', payload)
-      logger.info(
-        `[${requestId}] Queued webhook execution task ${handle.id} for ${foundWebhook.provider} webhook`
-      )
-    } else {
-      // Fire-and-forget direct execution to avoid blocking webhook response
-      void executeWebhookJob(payload).catch((error) => {
-        logger.error(`[${requestId}] Direct webhook execution failed`, error)
-      })
-      logger.info(
-        `[${requestId}] Queued direct webhook execution for ${foundWebhook.provider} webhook (Trigger.dev disabled)`
-      )
-    }
+    logger.info(
+      `[${requestId}] Queued webhook execution task ${handle.id} for ${foundWebhook.provider} webhook`
+    )
 
     // Return immediate acknowledgment with provider-specific format
     if (foundWebhook.provider === 'microsoftteams') {

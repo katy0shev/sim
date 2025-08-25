@@ -4,9 +4,8 @@ import { auth } from '@/lib/auth'
 
 export async function POST() {
   try {
-    const hdrs = await headers()
     const response = await auth.api.generateOneTimeToken({
-      headers: hdrs,
+      headers: await headers(),
     })
 
     if (!response) {
@@ -15,6 +14,7 @@ export async function POST() {
 
     return NextResponse.json({ token: response.token })
   } catch (error) {
+    console.error('Error generating one-time token:', error)
     return NextResponse.json({ error: 'Failed to generate token' }, { status: 500 })
   }
 }

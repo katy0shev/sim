@@ -128,14 +128,21 @@ export const tableAddTool: ToolConfig<
   },
 
   outputs: {
-    index: { type: 'number', description: 'Index of the first row that was added' },
-    values: { type: 'array', description: 'Array of rows that were added to the table' },
-    metadata: {
+    success: { type: 'boolean', description: 'Operation success status' },
+    output: {
       type: 'object',
-      description: 'Spreadsheet metadata',
+      description: 'Table add operation results and metadata',
       properties: {
-        spreadsheetId: { type: 'string', description: 'The ID of the spreadsheet' },
-        spreadsheetUrl: { type: 'string', description: 'URL to access the spreadsheet' },
+        index: { type: 'number', description: 'Index of the first row that was added' },
+        values: { type: 'array', description: 'Array of rows that were added to the table' },
+        metadata: {
+          type: 'object',
+          description: 'Spreadsheet metadata',
+          properties: {
+            spreadsheetId: { type: 'string', description: 'The ID of the spreadsheet' },
+            spreadsheetUrl: { type: 'string', description: 'URL to access the spreadsheet' },
+          },
+        },
       },
     },
   },

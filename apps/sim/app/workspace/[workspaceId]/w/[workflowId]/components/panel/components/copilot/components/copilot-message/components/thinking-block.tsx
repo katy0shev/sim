@@ -19,8 +19,6 @@ export function ThinkingBlock({
 }: ThinkingBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [duration, setDuration] = useState(persistedDuration ?? 0)
-  // Track if the user explicitly collapsed while streaming; sticky per block instance
-  const userCollapsedRef = useRef<boolean>(false)
   // Keep a stable reference to start time that updates when prop changes
   const startTimeRef = useRef<number>(persistedStartTime ?? Date.now())
   useEffect(() => {
@@ -30,14 +28,13 @@ export function ThinkingBlock({
   }, [persistedStartTime])
 
   useEffect(() => {
-    // Auto-collapse when streaming ends and reset userCollapsed flag
+    // Auto-collapse when streaming ends
     if (!isStreaming) {
       setIsExpanded(false)
-      userCollapsedRef.current = false
       return
     }
-    // Expand once there is visible content while streaming, unless user collapsed
-    if (!userCollapsedRef.current && content && content.trim().length > 0) {
+    // Expand once there is visible content while streaming
+    if (content && content.trim().length > 0) {
       setIsExpanded(true)
     }
   }, [isStreaming, content])
@@ -68,16 +65,9 @@ export function ThinkingBlock({
   }
 
   return (
-    <div className='mt-1 mb-0'>
+    <div className='my-1'>
       <button
-        onClick={() => {
-          setIsExpanded((v) => {
-            const next = !v
-            // If user collapses during streaming, remember to not auto-expand again
-            if (!next && isStreaming) userCollapsedRef.current = true
-            return next
-          })
-        }}
+        onClick={() => setIsExpanded((v) => !v)}
         className={cn(
           'mb-1 inline-flex items-center gap-1 text-gray-400 text-xs transition-colors hover:text-gray-500',
           'font-normal italic'

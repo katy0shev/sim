@@ -45,15 +45,14 @@ export function General() {
   const toggleConsoleExpandedByDefault = useGeneralStore(
     (state) => state.toggleConsoleExpandedByDefault
   )
+  const loadSettings = useGeneralStore((state) => state.loadSettings)
 
-  // Sync theme from store to next-themes when theme changes
   useEffect(() => {
-    if (!isLoading && theme) {
-      // Ensure next-themes is in sync with our store
-      const { syncThemeToNextThemes } = require('@/lib/theme-sync')
-      syncThemeToNextThemes(theme)
+    const loadData = async () => {
+      await loadSettings()
     }
-  }, [theme, isLoading])
+    loadData()
+  }, [loadSettings])
 
   const handleThemeChange = async (value: 'system' | 'light' | 'dark') => {
     await setTheme(value)

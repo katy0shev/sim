@@ -5,7 +5,7 @@ export const StarterBlock: BlockConfig = {
   type: 'starter',
   name: 'Starter',
   description: 'Start workflow',
-  longDescription: 'Initiate your workflow manually with optional structured input.',
+  longDescription: 'Initiate your workflow manually with optional structured input for API calls.',
   category: 'blocks',
   bgColor: '#2FB3FF',
   icon: StartIcon,
@@ -25,11 +25,9 @@ export const StarterBlock: BlockConfig = {
     // Structured Input format - visible if manual run is selected (advanced mode)
     {
       id: 'inputFormat',
-      title: 'Input Format',
+      title: 'Input Format (for API calls)',
       type: 'input-format',
       layout: 'full',
-      description:
-        'Name and Type define your input schema. Value is used only for manual test runs.',
       mode: 'advanced',
       condition: { field: 'startWorkflow', value: 'manual' },
     },

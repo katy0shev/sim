@@ -119,12 +119,23 @@ export class Executor {
       if (options.contextExtensions) {
         this.contextExtensions = options.contextExtensions
         this.isChildExecution = options.contextExtensions.isChildExecution || false
+
+        if (this.contextExtensions.stream) {
+          logger.info('Executor initialized with streaming enabled', {
+            hasSelectedOutputIds: Array.isArray(this.contextExtensions.selectedOutputIds),
+            selectedOutputCount: Array.isArray(this.contextExtensions.selectedOutputIds)
+              ? this.contextExtensions.selectedOutputIds.length
+              : 0,
+            selectedOutputIds: this.contextExtensions.selectedOutputIds || [],
+          })
+        }
       }
     } else {
       this.actualWorkflow = workflowParam
 
       if (workflowInput) {
         this.workflowInput = workflowInput
+        logger.info('[Executor] Using workflow input:', JSON.stringify(this.workflowInput, null, 2))
       } else {
         this.workflowInput = {}
       }
@@ -389,7 +400,8 @@ export class Executor {
                     try {
                       reader.releaseLock()
                     } catch (releaseError: any) {
-                      // Reader might already be released - this is expected and safe to ignore
+                      // Reader might already be released
+                      logger.debug('Reader already released:', releaseError)
                     }
                   }
                 }
@@ -443,14 +455,6 @@ export class Executor {
           success: false,
           output: finalOutput,
           error: 'Workflow execution was cancelled',
-          metadata: {
-            duration: Date.now() - startTime.getTime(),
-            startTime: context.metadata.startTime!,
-            workflowConnections: this.actualWorkflow.connections.map((conn: any) => ({
-              source: conn.source,
-              target: conn.target,
-            })),
-          },
           logs: context.blockLogs,
         }
       }
@@ -499,14 +503,6 @@ export class Executor {
         success: false,
         output: finalOutput,
         error: this.extractErrorMessage(error),
-        metadata: {
-          duration: Date.now() - startTime.getTime(),
-          startTime: context.metadata.startTime!,
-          workflowConnections: this.actualWorkflow.connections.map((conn: any) => ({
-            source: conn.source,
-            target: conn.target,
-          })),
-        },
         logs: context.blockLogs,
       }
     } finally {
@@ -534,14 +530,6 @@ export class Executor {
         success: false,
         output: finalOutput,
         error: 'Workflow execution was cancelled',
-        metadata: {
-          duration: Date.now() - new Date(context.metadata.startTime!).getTime(),
-          startTime: context.metadata.startTime!,
-          workflowConnections: this.actualWorkflow.connections.map((conn: any) => ({
-            source: conn.source,
-            target: conn.target,
-          })),
-        },
         logs: context.blockLogs,
       }
     }
@@ -608,14 +596,6 @@ export class Executor {
         success: false,
         output: finalOutput,
         error: this.extractErrorMessage(error),
-        metadata: {
-          duration: Date.now() - new Date(context.metadata.startTime!).getTime(),
-          startTime: context.metadata.startTime!,
-          workflowConnections: this.actualWorkflow.connections.map((conn: any) => ({
-            source: conn.source,
-            target: conn.target,
-          })),
-        },
         logs: context.blockLogs,
       }
     }
@@ -629,12 +609,15 @@ export class Executor {
    * @throws Error if workflow validation fails
    */
   private validateWorkflow(startBlockId?: string): void {
+    let validationBlock: SerializedBlock | undefined
+
     if (startBlockId) {
       // If starting from a specific block (webhook trigger or schedule trigger), validate that block exists
       const startBlock = this.actualWorkflow.blocks.find((block) => block.id === startBlockId)
       if (!startBlock || !startBlock.enabled) {
         throw new Error(`Start block ${startBlockId} not found or disabled`)
       }
+      validationBlock = startBlock
       // Trigger blocks (webhook and schedule) can have incoming connections, so no need to check that
     } else {
       // Default validation for starter block
@@ -644,6 +627,7 @@ export class Executor {
       if (!starterBlock || !starterBlock.enabled) {
         throw new Error('Workflow must have an enabled starter block')
       }
+      validationBlock = starterBlock
 
       const incomingToStarter = this.actualWorkflow.connections.filter(
         (conn) => conn.target === starterBlock.id
@@ -725,7 +709,6 @@ export class Executor {
         duration: 0, // Initialize with zero, will be updated throughout execution
       },
       environmentVariables: this.environmentVariables,
-      workflowVariables: this.workflowVariables,
       decisions: {
         router: new Map(),
         condition: new Map(),
@@ -788,30 +771,23 @@ export class Executor {
               // Get the field value from workflow input if available
               // First try to access via input.field, then directly from field
               // This handles both input formats: { input: { field: value } } and { field: value }
-              let inputValue =
+              const inputValue =
                 this.workflowInput?.input?.[field.name] !== undefined
                   ? this.workflowInput.input[field.name] // Try to get from input.field
                   : this.workflowInput?.[field.name] // Fallback to direct field access
 
-              if (inputValue === undefined || inputValue === null) {
-                if (Object.hasOwn(field, 'value')) {
-                  inputValue = (field as any).value
-                }
-              }
+              logger.info(
+                `[Executor] Processing input field ${field.name} (${field.type}):`,
+                inputValue !== undefined ? JSON.stringify(inputValue) : 'undefined'
+              )
 
+              // Convert the value to the appropriate type
               let typedValue = inputValue
-              if (inputValue !== undefined && inputValue !== null) {
-                if (field.type === 'string' && typeof inputValue !== 'string') {
-                  typedValue = String(inputValue)
-                } else if (field.type === 'number' && typeof inputValue !== 'number') {
-                  const num = Number(inputValue)
-                  typedValue = Number.isNaN(num) ? inputValue : num
+              if (inputValue !== undefined) {
+                if (field.type === 'number' && typeof inputValue !== 'number') {
+                  typedValue = Number(inputValue)
                 } else if (field.type === 'boolean' && typeof inputValue !== 'boolean') {
-                  typedValue =
-                    inputValue === 'true' ||
-                    inputValue === true ||
-                    inputValue === 1 ||
-                    inputValue === '1'
+                  typedValue = inputValue === 'true' || inputValue === true
                 } else if (
                   (field.type === 'object' || field.type === 'array') &&
                   typeof inputValue === 'string'
@@ -852,6 +828,8 @@ export class Executor {
           if (this.workflowInput?.files && Array.isArray(this.workflowInput.files)) {
             blockOutput.files = this.workflowInput.files
           }
+
+          logger.info(`[Executor] Starting block output:`, JSON.stringify(blockOutput, null, 2))
 
           context.blockStates.set(initBlock.id, {
             output: blockOutput,
@@ -944,6 +922,11 @@ export class Executor {
             input: this.workflowInput,
           }
         }
+
+        logger.info(
+          '[Executor] Fallback starting block output:',
+          JSON.stringify(blockOutput, null, 2)
+        )
 
         context.blockStates.set(initBlock.id, {
           output: blockOutput,
@@ -1315,7 +1298,7 @@ export class Executor {
       const results: (NormalizedBlockOutput | StreamingExecution)[] = []
       const errors: Error[] = []
 
-      settledResults.forEach((result) => {
+      settledResults.forEach((result, index) => {
         if (result.status === 'fulfilled') {
           results.push(result.value)
         } else {
@@ -1416,6 +1399,7 @@ export class Executor {
     }
 
     const addConsole = useConsoleStore.getState().addConsole
+    const { setActiveBlocks } = useExecutionStore.getState()
 
     try {
       if (block.enabled === false) {
@@ -1746,11 +1730,6 @@ export class Executor {
       blockLog.durationMs =
         new Date(blockLog.endedAt).getTime() - new Date(blockLog.startedAt).getTime()
 
-      // If this error came from a child workflow execution, persist its trace spans on the log
-      if (block.metadata?.id === BlockType.WORKFLOW) {
-        this.attachChildWorkflowSpansToLog(blockLog, error)
-      }
-
       // Log the error even if we'll continue execution through error path
       context.blockLogs.push(blockLog)
 
@@ -1829,11 +1808,6 @@ export class Executor {
         status: error.status || 500,
       }
 
-      // Preserve child workflow spans on the block state so downstream logging can render them
-      if (block.metadata?.id === BlockType.WORKFLOW) {
-        this.attachChildWorkflowSpansToOutput(errorOutput, error)
-      }
-
       // Set block state with error output
       context.blockStates.set(blockId, {
         output: errorOutput,
@@ -1875,39 +1849,6 @@ export class Executor {
       })
 
       throw new Error(errorMessage)
-    }
-  }
-
-  /**
-   * Copies child workflow trace spans from an error object into a block log.
-   * Ensures consistent structure and avoids duplication of inline guards.
-   */
-  private attachChildWorkflowSpansToLog(blockLog: BlockLog, error: unknown): void {
-    const spans = (
-      error as { childTraceSpans?: TraceSpan[]; childWorkflowName?: string } | null | undefined
-    )?.childTraceSpans
-    if (Array.isArray(spans) && spans.length > 0) {
-      blockLog.output = {
-        ...(blockLog.output || {}),
-        childTraceSpans: spans,
-        childWorkflowName: (error as { childWorkflowName?: string } | null | undefined)
-          ?.childWorkflowName,
-      }
-    }
-  }
-
-  /**
-   * Copies child workflow trace spans from an error object into a normalized output.
-   */
-  private attachChildWorkflowSpansToOutput(output: NormalizedBlockOutput, error: unknown): void {
-    const spans = (
-      error as { childTraceSpans?: TraceSpan[]; childWorkflowName?: string } | null | undefined
-    )?.childTraceSpans
-    if (Array.isArray(spans) && spans.length > 0) {
-      output.childTraceSpans = spans
-      output.childWorkflowName = (
-        error as { childWorkflowName?: string } | null | undefined
-      )?.childWorkflowName
     }
   }
 

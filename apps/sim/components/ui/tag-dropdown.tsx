@@ -1,5 +1,5 @@
 import type React from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
@@ -14,7 +14,7 @@ import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { getTool } from '@/tools/utils'
-import { getTrigger, getTriggersByProvider } from '@/triggers'
+import { getTriggersByProvider } from '@/triggers'
 
 interface BlockTagGroup {
   blockName: string
@@ -104,8 +104,8 @@ const getOutputTypeForPath = (
   outputPath: string
 ): string => {
   if (block?.triggerMode && blockConfig?.triggers?.enabled) {
-    const triggerId = blockConfig?.triggers?.available?.[0]
-    const firstTrigger = triggerId ? getTrigger(triggerId) : getTriggersByProvider(block.type)[0]
+    const triggers = getTriggersByProvider(block.type)
+    const firstTrigger = triggers[0]
 
     if (firstTrigger?.outputs) {
       const pathParts = outputPath.split('.')
@@ -283,7 +283,6 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
   onClose,
   style,
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [hoveredNested, setHoveredNested] = useState<{ tag: string; index: number } | null>(null)
   const [inSubmenu, setInSubmenu] = useState(false)
@@ -418,10 +417,8 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
         }
       } else {
         if (sourceBlock?.triggerMode && blockConfig.triggers?.enabled) {
-          const triggerId = blockConfig?.triggers?.available?.[0]
-          const firstTrigger = triggerId
-            ? getTrigger(triggerId)
-            : getTriggersByProvider(sourceBlock.type)[0]
+          const triggers = getTriggersByProvider(sourceBlock.type)
+          const firstTrigger = triggers[0]
 
           if (firstTrigger?.outputs) {
             // Use trigger outputs instead of block outputs
@@ -689,10 +686,8 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       } else {
         const blockState = blocks[accessibleBlockId]
         if (blockState?.triggerMode && blockConfig.triggers?.enabled) {
-          const triggerId = blockConfig?.triggers?.available?.[0]
-          const firstTrigger = triggerId
-            ? getTrigger(triggerId)
-            : getTriggersByProvider(blockState.type)[0]
+          const triggers = getTriggersByProvider(blockState.type) // Use block type as provider
+          const firstTrigger = triggers[0]
 
           if (firstTrigger?.outputs) {
             // Use trigger outputs instead of block outputs
@@ -954,53 +949,10 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     }
   }, [orderedTags.length, selectedIndex])
 
-  // Close on outside click/touch when dropdown is visible
-  useEffect(() => {
-    if (!visible) return
-
-    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
-      const el = containerRef.current
-      if (!el) return
-      const target = e.target as Node
-      if (!el.contains(target)) {
-        onClose?.()
-      }
-    }
-
-    // Use capture phase to detect before child handlers potentially stop propagation
-    document.addEventListener('mousedown', handlePointerDown, true)
-    document.addEventListener('touchstart', handlePointerDown, true)
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown, true)
-      document.removeEventListener('touchstart', handlePointerDown, true)
-    }
-  }, [visible, onClose])
-
   useEffect(() => {
     if (visible) {
       const handleKeyboardEvent = (e: KeyboardEvent) => {
         if (!orderedTags.length) return
-
-        const canEnterSubmenuForSelected = (): {
-          groupIndex: number
-          nestedTagIndex: number
-        } | null => {
-          if (selectedIndex < 0 || selectedIndex >= orderedTags.length) return null
-          const selectedTag = orderedTags[selectedIndex]
-          for (let gi = 0; gi < nestedBlockTagGroups.length; gi++) {
-            const group = nestedBlockTagGroups[gi]
-            for (let ni = 0; ni < group.nestedTags.length; ni++) {
-              const nestedTag = group.nestedTags[ni]
-              if (nestedTag.children && nestedTag.children.length > 0) {
-                const firstChild = nestedTag.children[0]
-                if (firstChild.fullTag === selectedTag) {
-                  return { groupIndex: gi, nestedTagIndex: ni }
-                }
-              }
-            }
-          }
-          return null
-        }
 
         if (inSubmenu) {
           const currentHovered = hoveredNested
@@ -1130,22 +1082,31 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
               })
               break
             case 'ArrowRight':
-              {
-                const targetLocation = canEnterSubmenuForSelected()
-                if (!targetLocation) {
-                  // No submenu action for current selection; allow caret move
-                  return
+              e.preventDefault()
+              e.stopPropagation()
+              if (selectedIndex >= 0 && selectedIndex < orderedTags.length) {
+                const selectedTag = orderedTags[selectedIndex]
+                for (const group of nestedBlockTagGroups) {
+                  for (
+                    let nestedTagIndex = 0;
+                    nestedTagIndex < group.nestedTags.length;
+                    nestedTagIndex++
+                  ) {
+                    const nestedTag = group.nestedTags[nestedTagIndex]
+                    if (nestedTag.children && nestedTag.children.length > 0) {
+                      const firstChild = nestedTag.children[0]
+                      if (firstChild.fullTag === selectedTag) {
+                        setInSubmenu(true)
+                        setSubmenuIndex(0)
+                        setHoveredNested({
+                          tag: `${group.blockId}-${nestedTag.key}`,
+                          index: nestedTagIndex,
+                        })
+                        return
+                      }
+                    }
+                  }
                 }
-                e.preventDefault()
-                e.stopPropagation()
-                const group = nestedBlockTagGroups[targetLocation.groupIndex]
-                const nestedTag = group.nestedTags[targetLocation.nestedTagIndex]
-                setInSubmenu(true)
-                setSubmenuIndex(0)
-                setHoveredNested({
-                  tag: `${group.blockId}-${nestedTag.key}`,
-                  index: targetLocation.nestedTagIndex,
-                })
               }
               break
             case 'Enter':
@@ -1212,7 +1173,6 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
 
   return (
     <div
-      ref={containerRef}
       className={cn(
         'absolute z-[9999] mt-1 w-full overflow-visible rounded-md border bg-popover shadow-md',
         className

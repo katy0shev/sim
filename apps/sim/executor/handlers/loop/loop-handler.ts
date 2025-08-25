@@ -222,10 +222,9 @@ export class LoopBlockHandler implements BlockHandler {
           }
         }
 
-        // If we have a resolver, use it to resolve any variable references first, then block references
+        // If we have a resolver, use it to resolve any block references in the expression
         if (this.resolver) {
-          const resolvedVars = this.resolver.resolveVariableReferences(forEachItems, block)
-          const resolved = this.resolver.resolveBlockReferences(resolvedVars, context, block)
+          const resolved = this.resolver.resolveBlockReferences(forEachItems, context, block)
 
           // Try to parse the resolved value
           try {

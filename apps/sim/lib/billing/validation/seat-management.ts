@@ -1,5 +1,5 @@
 import { and, count, eq } from 'drizzle-orm'
-import { getOrganizationSubscription } from '@/lib/billing/core/billing'
+import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { db } from '@/db'
@@ -33,8 +33,8 @@ export async function validateSeatAvailability(
   additionalSeats = 1
 ): Promise<SeatValidationResult> {
   try {
-    // Get organization subscription directly (referenceId = organizationId)
-    const subscription = await getOrganizationSubscription(organizationId)
+    // Get organization subscription
+    const subscription = await getHighestPrioritySubscription(organizationId)
 
     if (!subscription) {
       return {
@@ -71,10 +71,7 @@ export async function validateSeatAvailability(
     // For enterprise plans, check metadata for custom seat allowances
     if (subscription.plan === 'enterprise' && subscription.metadata) {
       try {
-        const metadata =
-          typeof subscription.metadata === 'string'
-            ? JSON.parse(subscription.metadata)
-            : subscription.metadata
+        const metadata = JSON.parse(subscription.metadata)
         if (metadata.maxSeats) {
           maxSeats = metadata.maxSeats
         }
@@ -145,8 +142,8 @@ export async function getOrganizationSeatInfo(
       return null
     }
 
-    // Get organization subscription directly (referenceId = organizationId)
-    const subscription = await getOrganizationSubscription(organizationId)
+    // Get subscription
+    const subscription = await getHighestPrioritySubscription(organizationId)
 
     if (!subscription) {
       return null
@@ -166,10 +163,7 @@ export async function getOrganizationSeatInfo(
 
     if (subscription.plan === 'enterprise' && subscription.metadata) {
       try {
-        const metadata =
-          typeof subscription.metadata === 'string'
-            ? JSON.parse(subscription.metadata)
-            : subscription.metadata
+        const metadata = JSON.parse(subscription.metadata)
         if (metadata.maxSeats) {
           maxSeats = metadata.maxSeats
         }
@@ -288,8 +282,8 @@ export async function updateOrganizationSeats(
   updatedBy: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Get current organization subscription directly (referenceId = organizationId)
-    const subscriptionRecord = await getOrganizationSubscription(organizationId)
+    // Get current subscription
+    const subscriptionRecord = await getHighestPrioritySubscription(organizationId)
 
     if (!subscriptionRecord) {
       return { success: false, error: 'No active subscription found' }

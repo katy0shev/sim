@@ -237,11 +237,10 @@ export function GoogleDrivePicker({
 
     setIsLoading(true)
     try {
-      const response = await fetch('/api/auth/oauth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credentialId: effectiveCredentialId, workflowId }),
-      })
+      const url = new URL('/api/auth/oauth/token', window.location.origin)
+      url.searchParams.set('credentialId', effectiveCredentialId)
+      // include workflowId if available via global registry (server adds session owner otherwise)
+      const response = await fetch(url.toString())
 
       if (!response.ok) {
         throw new Error(`Failed to fetch access token: ${response.status}`)

@@ -120,15 +120,12 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const setMessage =
       controlledValue !== undefined ? onControlledChange || (() => {}) : setInternalMessage
 
-    // Auto-resize textarea and toggle vertical scroll when exceeding max height
+    // Auto-resize textarea
     useEffect(() => {
       const textarea = textareaRef.current
       if (textarea) {
-        const maxHeight = 120
         textarea.style.height = 'auto'
-        const nextHeight = Math.min(textarea.scrollHeight, maxHeight)
-        textarea.style.height = `${nextHeight}px`
-        textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden'
+        textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px` // Max height of 120px
       }
     }, [message])
 
@@ -434,13 +431,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     // Depth toggle state comes from global store; access via useCopilotStore
     const { agentDepth, agentPrefetch, setAgentDepth, setAgentPrefetch } = useCopilotStore()
 
-    // Ensure MAX mode is off for Fast and Balanced depths
-    useEffect(() => {
-      if (agentDepth < 2 && !agentPrefetch) {
-        setAgentPrefetch(true)
-      }
-    }, [agentDepth, agentPrefetch, setAgentPrefetch])
-
     const cycleDepth = () => {
       // 8 modes: depths 0-3, each with prefetch off/on. Cycle depth, then toggle prefetch when wrapping.
       const nextDepth = agentDepth === 3 ? 0 : ((agentDepth + 1) as 0 | 1 | 2 | 3)
@@ -456,27 +446,24 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     }
 
     const getDepthLabelFor = (value: 0 | 1 | 2 | 3) => {
-      return value === 0 ? 'Fast' : value === 1 ? 'Balanced' : value === 2 ? 'Advanced' : 'Behemoth'
+      return value === 0 ? 'Fast' : value === 1 ? 'Balanced' : value === 2 ? 'Advanced' : 'Expert'
     }
 
     // Removed descriptive suffixes; concise labels only
     const getDepthDescription = (value: 0 | 1 | 2 | 3) => {
       if (value === 0)
-        return 'Fastest and cheapest. Good for small edits, simple workflows, and small tasks'
-      if (value === 1) return 'Balances speed and reasoning. Good fit for most tasks'
+        return 'Fastest and cheapest. Good for small edits, simple workflows, and small tasks.'
+      if (value === 1) return 'Balances speed and reasoning. Good fit for most tasks.'
       if (value === 2)
-        return 'More reasoning for larger workflows and complex edits, still balanced for speed'
-      return 'Maximum reasoning power. Best for complex workflow building and debugging'
+        return 'More reasoning for larger workflows and complex edits, still balanced for speed.'
+      return 'Maximum reasoning power. Best for complex workflow building and debugging.'
     }
 
     const getDepthIconFor = (value: 0 | 1 | 2 | 3) => {
-      const colorClass = !agentPrefetch
-        ? 'text-[var(--brand-primary-hover-hex)]'
-        : 'text-muted-foreground'
-      if (value === 0) return <Zap className={`h-3 w-3 ${colorClass}`} />
-      if (value === 1) return <InfinityIcon className={`h-3 w-3 ${colorClass}`} />
-      if (value === 2) return <Brain className={`h-3 w-3 ${colorClass}`} />
-      return <BrainCircuit className={`h-3 w-3 ${colorClass}`} />
+      if (value === 0) return <Zap className='h-3 w-3 text-muted-foreground' />
+      if (value === 1) return <InfinityIcon className='h-3 w-3 text-muted-foreground' />
+      if (value === 2) return <Brain className='h-3 w-3 text-muted-foreground' />
+      return <BrainCircuit className='h-3 w-3 text-muted-foreground' />
     }
 
     const getDepthIcon = () => getDepthIconFor(agentDepth)
@@ -563,7 +550,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             placeholder={isDragging ? 'Drop files here...' : placeholder}
             disabled={disabled}
             rows={1}
-            className='mb-2 min-h-[32px] w-full resize-none overflow-y-auto overflow-x-hidden border-0 bg-transparent px-[2px] py-1 text-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
+            className='mb-2 min-h-[32px] w-full resize-none overflow-hidden border-0 bg-transparent px-[2px] py-1 text-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
             style={{ height: 'auto' }}
           />
 
@@ -649,12 +636,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                     <Button
                       variant='ghost'
                       size='sm'
-                      className={cn(
-                        'flex h-6 items-center gap-1.5 rounded-full border px-2 py-1 font-medium text-xs',
-                        !agentPrefetch
-                          ? 'border-[var(--brand-primary-hover-hex)] text-[var(--brand-primary-hover-hex)] hover:bg-[color-mix(in_srgb,var(--brand-primary-hover-hex)_8%,transparent)] hover:text-[var(--brand-primary-hover-hex)]'
-                          : 'border-border text-foreground'
-                      )}
+                      className='flex h-6 items-center gap-1.5 rounded-full border px-2 py-1 font-medium text-xs'
                       title='Choose mode'
                     >
                       {getDepthIcon()}
@@ -684,25 +666,12 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                 className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
                               >
                                 Significantly increases depth of reasoning
-                                <br />
-                                <span className='text-[10px] text-muted-foreground italic'>
-                                  Only available in Advanced and Behemoth modes
-                                </span>
                               </TooltipContent>
                             </Tooltip>
                           </div>
                           <Switch
                             checked={!agentPrefetch}
-                            disabled={agentDepth < 2}
-                            title={
-                              agentDepth < 2
-                                ? 'MAX mode is only available for Advanced or Expert'
-                                : undefined
-                            }
-                            onCheckedChange={(checked) => {
-                              if (agentDepth < 2) return
-                              setAgentPrefetch(!checked)
-                            }}
+                            onCheckedChange={(checked) => setAgentPrefetch(!checked)}
                           />
                         </div>
                         <div className='my-2 flex justify-center'>
@@ -711,12 +680,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                         <div className='mb-3'>
                           <div className='mb-2 flex items-center justify-between'>
                             <span className='font-medium text-xs'>Mode</span>
-                            <div className='flex items-center gap-1'>
-                              {getDepthIconFor(agentDepth)}
-                              <span className='text-muted-foreground text-xs'>
-                                {getDepthLabelFor(agentDepth)}
-                              </span>
-                            </div>
+                            <span className='text-muted-foreground text-xs'>
+                              {getDepthLabelFor(agentDepth)}
+                            </span>
                           </div>
                           <div className='relative'>
                             <Slider

@@ -7,12 +7,7 @@ import {
   createTriggerObject,
   loadWorkflowStateForExecution,
 } from '@/lib/logs/execution/logging-factory'
-import type {
-  ExecutionEnvironment,
-  ExecutionTrigger,
-  TraceSpan,
-  WorkflowState,
-} from '@/lib/logs/types'
+import type { ExecutionEnvironment, ExecutionTrigger, WorkflowState } from '@/lib/logs/types'
 
 const logger = createLogger('LoggingSession')
 
@@ -28,15 +23,6 @@ export interface SessionCompleteParams {
   totalDurationMs?: number
   finalOutput?: any
   traceSpans?: any[]
-}
-
-export interface SessionErrorCompleteParams {
-  endedAt?: string
-  totalDurationMs?: number
-  error?: {
-    message?: string
-    stackTrace?: string
-  }
 }
 
 export class LoggingSession {
@@ -129,14 +115,8 @@ export class LoggingSession {
     }
   }
 
-  async completeWithError(params: SessionErrorCompleteParams = {}): Promise<void> {
+  async completeWithError(error?: any): Promise<void> {
     try {
-      const { endedAt, totalDurationMs, error } = params
-
-      const endTime = endedAt ? new Date(endedAt) : new Date()
-      const durationMs = typeof totalDurationMs === 'number' ? totalDurationMs : 0
-      const startTime = new Date(endTime.getTime() - Math.max(1, durationMs))
-
       const costSummary = {
         totalCost: BASE_EXECUTION_CHARGE,
         totalInputCost: 0,
@@ -149,29 +129,13 @@ export class LoggingSession {
         models: {},
       }
 
-      const message = error?.message || 'Execution failed before starting blocks'
-
-      const syntheticErrorSpan: TraceSpan[] = [
-        {
-          id: 'pre-execution-validation',
-          name: 'Workflow Error',
-          type: 'validation',
-          duration: Math.max(1, durationMs),
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-          status: 'error',
-          children: [],
-          output: { error: message },
-        },
-      ]
-
       await executionLogger.completeWorkflowExecution({
         executionId: this.executionId,
-        endedAt: endTime.toISOString(),
-        totalDurationMs: Math.max(1, durationMs),
+        endedAt: new Date().toISOString(),
+        totalDurationMs: 0,
         costSummary,
-        finalOutput: { error: message },
-        traceSpans: syntheticErrorSpan,
+        finalOutput: null,
+        traceSpans: [],
       })
 
       if (this.requestId) {
@@ -206,7 +170,7 @@ export class LoggingSession {
     }
   }
 
-  async safeCompleteWithError(error?: SessionErrorCompleteParams): Promise<void> {
+  async safeCompleteWithError(error?: any): Promise<void> {
     try {
       await this.completeWithError(error)
     } catch (enhancedError) {

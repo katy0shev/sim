@@ -88,8 +88,6 @@ export function MicrosoftFileSelector({
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const [credentialsLoaded, setCredentialsLoaded] = useState(false)
   const initialFetchRef = useRef(false)
-  // Track the last (credentialId, fileId) we attempted to resolve to avoid tight retry loops
-  const lastMetaAttemptRef = useRef<string>('')
 
   // Handle Microsoft Planner task selection
   const [plannerTasks, setPlannerTasks] = useState<PlannerTask[]>([])
@@ -498,15 +496,11 @@ export function MicrosoftFileSelector({
         setSelectedFileId('')
         onChange('')
       }
-      // Reset memo when credential is cleared
-      lastMetaAttemptRef.current = ''
     } else if (prevCredentialId && prevCredentialId !== selectedCredentialId) {
       // Credentials changed (not initial load) - clear file info to force refetch
       if (selectedFile) {
         setSelectedFile(null)
       }
-      // Reset memo when switching credentials
-      lastMetaAttemptRef.current = ''
     }
   }, [selectedCredentialId, selectedFile, onChange])
 
@@ -520,17 +514,10 @@ export function MicrosoftFileSelector({
       (!selectedFile || selectedFile.id !== value) &&
       !isLoadingSelectedFile
     ) {
-      // Avoid tight retry loops by memoizing the last attempt tuple
-      const attemptKey = `${selectedCredentialId}::${value}`
-      if (lastMetaAttemptRef.current === attemptKey) {
-        return
-      }
-      lastMetaAttemptRef.current = attemptKey
-
       if (serviceId === 'microsoft-planner') {
         void fetchPlannerTaskById(value)
       } else {
-        void fetchFileById(value)
+        fetchFileById(value)
       }
     }
   }, [

@@ -1,13 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { Resend } from 'resend'
 import { z } from 'zod'
-import { renderHelpConfirmationEmail } from '@/components/emails'
 import { getSession } from '@/lib/auth'
-import { sendEmail } from '@/lib/email/mailer'
-import { getFromEmailAddress } from '@/lib/email/utils'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getEmailDomain } from '@/lib/urls/utils'
 
+const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null
 const logger = createLogger('HelpAPI')
 
 const helpFormSchema = z.object({
@@ -29,6 +28,18 @@ export async function POST(req: NextRequest) {
 
     const email = session.user.email
 
+    // Check if Resend API key is configured
+    if (!resend) {
+      logger.error(`[${requestId}] RESEND_API_KEY not configured`)
+      return NextResponse.json(
+        {
+          error:
+            'Email service not configured. Please set RESEND_API_KEY in environment variables.',
+        },
+        { status: 500 }
+      )
+    }
+
     // Handle multipart form data
     const formData = await req.formData()
 
@@ -43,18 +54,18 @@ export async function POST(req: NextRequest) {
     })
 
     // Validate the form data
-    const validationResult = helpFormSchema.safeParse({
+    const result = helpFormSchema.safeParse({
       subject,
       message,
       type,
     })
 
-    if (!validationResult.success) {
+    if (!result.success) {
       logger.warn(`[${requestId}] Invalid help request data`, {
-        errors: validationResult.error.format(),
+        errors: result.error.format(),
       })
       return NextResponse.json(
-        { error: 'Invalid request data', details: validationResult.error.format() },
+        { error: 'Invalid request data', details: result.error.format() },
         { status: 400 }
       )
     }
@@ -92,60 +103,63 @@ ${message}
       emailText += `\n\n${images.length} image(s) attached.`
     }
 
-    const emailResult = await sendEmail({
+    // Send email using Resend
+    const { error } = await resend.emails.send({
+      from: `Sim <noreply@${env.EMAIL_DOMAIN || getEmailDomain()}>`,
       to: [`help@${env.EMAIL_DOMAIN || getEmailDomain()}`],
       subject: `[${type.toUpperCase()}] ${subject}`,
-      text: emailText,
-      from: getFromEmailAddress(),
       replyTo: email,
-      emailType: 'transactional',
+      text: emailText,
       attachments: images.map((image) => ({
         filename: image.filename,
         content: image.content.toString('base64'),
         contentType: image.contentType,
-        disposition: 'attachment',
+        disposition: 'attachment', // Explicitly set as attachment
       })),
     })
 
-    if (!emailResult.success) {
-      logger.error(`[${requestId}] Error sending help request email`, emailResult.message)
+    if (error) {
+      logger.error(`[${requestId}] Error sending help request email`, error)
       return NextResponse.json({ error: 'Failed to send email' }, { status: 500 })
     }
 
     logger.info(`[${requestId}] Help request email sent successfully`)
 
     // Send confirmation email to the user
-    try {
-      const confirmationHtml = await renderHelpConfirmationEmail(
-        email,
-        type as 'bug' | 'feedback' | 'feature_request' | 'other',
-        images.length
-      )
-
-      await sendEmail({
+    await resend.emails
+      .send({
+        from: `Sim <noreply@${env.EMAIL_DOMAIN || getEmailDomain()}>`,
         to: [email],
         subject: `Your ${type} request has been received: ${subject}`,
-        html: confirmationHtml,
-        from: getFromEmailAddress(),
+        text: `
+Hello,
+
+Thank you for your ${type} submission. We've received your request and will get back to you as soon as possible.
+
+Your message:
+${message}
+
+${images.length > 0 ? `You attached ${images.length} image(s).` : ''}
+
+Best regards,
+The Sim Team
+        `,
         replyTo: `help@${env.EMAIL_DOMAIN || getEmailDomain()}`,
-        emailType: 'transactional',
       })
-    } catch (err) {
-      logger.warn(`[${requestId}] Failed to send confirmation email`, err)
-    }
+      .catch((err) => {
+        logger.warn(`[${requestId}] Failed to send confirmation email`, err)
+      })
 
     return NextResponse.json(
       { success: true, message: 'Help request submitted successfully' },
       { status: 200 }
     )
   } catch (error) {
-    if (error instanceof Error && error.message.includes('not configured')) {
-      logger.error(`[${requestId}] Email service configuration error`, error)
+    // Check if error is related to missing API key
+    if (error instanceof Error && error.message.includes('API key')) {
+      logger.error(`[${requestId}] API key configuration error`, error)
       return NextResponse.json(
-        {
-          error:
-            'Email service configuration error. Please check your email service configuration.',
-        },
+        { error: 'Email service configuration error. Please check your RESEND_API_KEY.' },
         { status: 500 }
       )
     }

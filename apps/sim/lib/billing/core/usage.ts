@@ -41,7 +41,6 @@ export async function getUserUsageData(userId: string): Promise<UsageData> {
     }
 
     const stats = userStatsData[0]
-    const subscription = await getHighestPrioritySubscription(userId)
     const currentUsage = Number.parseFloat(
       stats.currentPeriodCost?.toString() ?? stats.totalCost.toString()
     )
@@ -50,19 +49,14 @@ export async function getUserUsageData(userId: string): Promise<UsageData> {
     const isWarning = percentUsed >= 80
     const isExceeded = currentUsage >= limit
 
-    // Derive billing period dates from subscription (source of truth).
-    // For free users or missing dates, expose nulls.
-    const billingPeriodStart = subscription?.periodStart ?? null
-    const billingPeriodEnd = subscription?.periodEnd ?? null
-
     return {
       currentUsage,
       limit,
       percentUsed,
       isWarning,
       isExceeded,
-      billingPeriodStart,
-      billingPeriodEnd,
+      billingPeriodStart: stats.billingPeriodStart,
+      billingPeriodEnd: stats.billingPeriodEnd,
       lastPeriodCost: Number.parseFloat(stats.lastPeriodCost?.toString() || '0'),
     }
   } catch (error) {

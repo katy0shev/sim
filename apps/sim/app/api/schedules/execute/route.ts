@@ -474,10 +474,8 @@ export async function GET() {
                 })
 
                 await loggingSession.safeCompleteWithError({
-                  error: {
-                    message: `Schedule execution failed before workflow started: ${earlyError.message}`,
-                    stackTrace: earlyError.stack,
-                  },
+                  message: `Schedule execution failed before workflow started: ${earlyError.message}`,
+                  stackTrace: earlyError.stack,
                 })
               } catch (loggingError) {
                 logger.error(
@@ -593,10 +591,8 @@ export async function GET() {
               })
 
               await failureLoggingSession.safeCompleteWithError({
-                error: {
-                  message: `Schedule execution failed: ${error.message}`,
-                  stackTrace: error.stack,
-                },
+                message: `Schedule execution failed: ${error.message}`,
+                stackTrace: error.stack,
               })
             } catch (loggingError) {
               logger.error(

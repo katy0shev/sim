@@ -17,11 +17,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui'
-import { createLogger } from '@/lib/logs/console/logger'
+import { Logger } from '@/lib/logs/console/logger'
 import { JSONView } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/panel/components/console/components'
 import { ConfigSection } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/components/webhook/components'
 
-const logger = createLogger('OutlookConfig')
+const logger = new Logger('OutlookConfig')
 
 interface OutlookFolder {
   id: string
