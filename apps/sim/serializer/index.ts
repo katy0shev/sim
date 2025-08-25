@@ -74,6 +74,15 @@ export class Serializer {
     // Extract parameters from UI state
     const params = this.extractParams(block)
 
+    try {
+      const isTriggerCategory = blockConfig.category === 'triggers'
+      if (block.triggerMode === true || isTriggerCategory) {
+        params.triggerMode = true
+      }
+    } catch (_) {
+      // no-op: conservative, avoid blocking serialization if blockConfig is unexpected
+    }
+
     // Validate required fields that only users can provide (before execution starts)
     if (validateRequired) {
       this.validateRequiredFieldsBeforeExecution(block, blockConfig, params)
@@ -213,13 +222,24 @@ export class Serializer {
 
     const params: Record<string, any> = {}
     const isAdvancedMode = block.advancedMode ?? false
+    const isStarterBlock = block.type === 'starter'
 
     // First collect all current values from subBlocks, filtering by mode
     Object.entries(block.subBlocks).forEach(([id, subBlock]) => {
       // Find the corresponding subblock config to check its mode
       const subBlockConfig = blockConfig.subBlocks.find((config) => config.id === id)
 
-      if (subBlockConfig && shouldIncludeField(subBlockConfig, isAdvancedMode)) {
+      // Include field if it matches current mode OR if it's the starter inputFormat with values
+      const hasStarterInputFormatValues =
+        isStarterBlock &&
+        id === 'inputFormat' &&
+        Array.isArray(subBlock.value) &&
+        subBlock.value.length > 0
+
+      if (
+        subBlockConfig &&
+        (shouldIncludeField(subBlockConfig, isAdvancedMode) || hasStarterInputFormatValues)
+      ) {
         params[id] = subBlock.value
       }
     })
@@ -374,6 +394,10 @@ export class Serializer {
       subBlocks,
       outputs: serializedBlock.outputs,
       enabled: true,
+      // Restore trigger mode from serialized params; treat trigger category as triggers as well
+      triggerMode:
+        serializedBlock.config?.params?.triggerMode === true ||
+        serializedBlock.metadata?.category === 'triggers',
     }
   }
 }

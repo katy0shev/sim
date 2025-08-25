@@ -9,7 +9,11 @@ import type {
   ProviderResponse,
   TimeSegment,
 } from '@/providers/types'
-import { prepareToolsWithUsageControl, trackForcedToolUsage } from '@/providers/utils'
+import {
+  prepareToolExecution,
+  prepareToolsWithUsageControl,
+  trackForcedToolUsage,
+} from '@/providers/utils'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('AzureOpenAIProvider')
@@ -143,6 +147,10 @@ export const azureOpenAIProvider: ProviderConfig = {
     // Add optional parameters
     if (request.temperature !== undefined) payload.temperature = request.temperature
     if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
+
+    // Add GPT-5 specific parameters
+    if (request.reasoningEffort !== undefined) payload.reasoning_effort = request.reasoningEffort
+    if (request.verbosity !== undefined) payload.verbosity = request.verbosity
 
     // Add response format for structured output if specified
     if (request.responseFormat) {
@@ -379,25 +387,7 @@ export const azureOpenAIProvider: ProviderConfig = {
             // Execute the tool
             const toolCallStartTime = Date.now()
 
-            // Only merge actual tool parameters for logging
-            const toolParams = {
-              ...tool.params,
-              ...toolArgs,
-            }
-
-            // Add system parameters for execution
-            const executionParams = {
-              ...toolParams,
-              ...(request.workflowId
-                ? {
-                    _context: {
-                      workflowId: request.workflowId,
-                      ...(request.chatId ? { chatId: request.chatId } : {}),
-                    },
-                  }
-                : {}),
-              ...(request.environmentVariables ? { envVars: request.environmentVariables } : {}),
-            }
+            const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
 
             const result = await executeTool(toolName, executionParams, true)
             const toolCallEndTime = Date.now()
